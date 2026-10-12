@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>우주 꼬마 4컷 사진관</title>
+  
+  <!-- 동글동글 귀여운 유아용 웹폰트 (Jua) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+
+  <!-- MediaPipe Hands & Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Jua', cursive, sans-serif;
+      user-select: none;
+    }
+    body {
+      background: linear-gradient(180deg, #ffc2eb 0%, #b8c0ff 50%, #cbf3f0 100%);
+      color: #4a4e69;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 15px;
+      overflow-x: hidden;
+    }
+    header {
+      margin: 10px 0 15px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      color: #6a4c93;
+      text-shadow: 2px 2px 0px #ffffff, 4px 4px 0px #ffd166;
+      letter-spacing: 1px;
+    }
+    .status-msg {
+      font-size: 1.2rem;
+      color: #4361ee;
+      margin-top: 8px;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 8px 18px;
+      border-radius: 25px;
+      border: 3px solid #ffd166;
+      display: inline-block;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      animation: bounce 2s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .camera-container {
+      position: relative;
+      width: 90vw;
+      max-width: 380px;
+      height: 285px;
+      border-radius: 30px;
+      overflow: hidden;
+      border: 6px solid #fff;
+      box-shadow: 0 10px 25px rgba(106, 76, 147, 0.2);
+      background-color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    /* 셀카 거울 모드 (좌우 반전된 형태로 프리뷰 제공) */
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    /* 타이머 카운트다운 오버레이 */
+    .countdown-overlay {
+      position: absolute;
+      font-size: 6.5rem;
+      color: #ff595e;
+      text-shadow: 4px 4px 0 #fff, 8px 8px 0 #ffd166;
+      display: none;
+      pointer-events: none;
+      animation: pop 0.8s ease infinite;
+    }
+    @keyframes pop {
+      0% { transform: scale(0.8); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    /* 촬영 진행 상황 표시 (도장 모양) */
+    .progress-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: #ff70a6;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 1.1rem;
+      border: 2px solid #fff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    /* 플래시 효과 */
+    .flash {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease-out;
+    }
+
+    .result-container {
+      margin-top: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      padding-bottom: 30px;
+    }
+    canvas#finalCanvas {
+      max-width: 280px;
+      border-radius: 20px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+      border: 6px solid #fff;
+      display: none;
+    }
+
+    /* 유아용 젤리 통통 버튼 */
+    .btn {
+      background: linear-gradient(135deg, #ff70a6, #ff9770);
+      border: 4px solid #fff;
+      color: white;
+      padding: 12px 28px;
+      border-radius: 30px;
+      font-size: 1.3rem;
+      cursor: pointer;
+      box-shadow: 0 6px 15px rgba(255, 112, 166, 0.4);
+      transition: transform 0.1s;
+    }
+    .btn:active {
+      transform: scale(0.92);
+    }
+    #startBtn {
+      margin-top: 15px;
+      background: linear-gradient(135deg, #70d6ff, #9b5de5);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🪐 우주 꼬마 4컷 🚀</h1>
+    <div class="status-msg" id="statusMsg">손바닥을 쫙! ✋ 보여주세요!</div>
+  </header>
+
+  <div class="camera-container">
+    <video id="webcam" playsinline muted></video>
+    <div class="countdown-overlay" id="countdown">3</div>
+    <div class="progress-badge" id="progressBadge">⭐ 0 / 4</div>
+    <div class="flash" id="flash"></div>
+  </div>
+
+  <button class="btn" id="startBtn" onclick="initApp()">카메라 켜기 📷</button>
+
+  <div class="result-container">
+    <canvas id="finalCanvas"></canvas>
+    <button class="btn" id="retryBtn" style="display: none;" onclick="resetCapture()">한 번 더 찍을래! 🔄</button>
+  </div>
+
+  <script>
+    const videoElement = document.getElementById('webcam');
+    const countdownEl = document.getElementById('countdown');
